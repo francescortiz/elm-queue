@@ -25,7 +25,6 @@ Simple lists of tasks, duplication allowed. Items cannot be removed.
 import List.Extra
 
 
-
 type alias Lane a =
     ( String, a )
 
@@ -36,14 +35,15 @@ type alias QueueBody a =
     , poolSize : Int
     }
 
-{-| Keyed queue. Keyed queues don't have duplicates and allow items to be dequeued.
 
+{-| Keyed queue. Keyed queues don't have duplicates. You have to dequeue items that have in started in order to free up
+space in the queue pool.
 -}
 type Queue a
     = Queue (QueueBody a)
 
-{-| Created empty Queue. You have to specify the pool size (or parallelization count in case of background tasks).
 
+{-| Created empty Queue. You have to specify the size of pool (or parallelization count).
 -}
 empty : Int -> Queue a
 empty poolSize =
@@ -53,8 +53,8 @@ empty poolSize =
         , poolSize = poolSize
         }
 
-{-| Add entry to the queue and start processing it. (get first elements to start processing them). Started elements don't belong to the queue anymore.
 
+{-| Add entry to the queue and start processing it (get first elements to start processing them).
 -}
 enqueueAndStart : String -> a -> Queue a -> ( Queue a, List a )
 enqueueAndStart key item queue =
@@ -62,8 +62,9 @@ enqueueAndStart key item queue =
         |> enqueue key item
         |> start
 
-{-| Start processing the queue (get first elements to start processing them). Started elements don't belong to the queue anymore.
 
+{-| Start processing the queue (get first elements to start processing them). You need to call dequeue on complete items
+in order to free up pool space.
 -}
 start : Queue a -> ( Queue a, List a )
 start (Queue queue) =
@@ -95,7 +96,12 @@ start (Queue queue) =
         |> List.map Tuple.second
     )
 
-{-| Add one element to the queue. You have to provide a key to guarantee uniqueness of the item.
+
+{-| Add one element to the queue. You have to provide a key be able to track the item completion.
+
+    queue
+        |> enqueue "get-user-photo" httpRequest
+        |> start
 
 -}
 enqueue : String -> a -> Queue a -> Queue a
@@ -109,8 +115,8 @@ enqueue key item (Queue queue) =
     else
         Queue queue
 
-{-| Add many elements to the queue.
 
+{-| Add many elements to the queue.
 -}
 enqueueMany : List ( String, a ) -> Queue a -> Queue a
 enqueueMany keyedItems queue =
@@ -127,10 +133,15 @@ alreadyEnqueued key queue =
     List.any (\( key_, _ ) -> key == key_) queue.backlog
         || List.any (\( key_, _ ) -> key == key_) queue.activeLanes
 
-{-| Remove an element from the key. You have to provide the element key.
+
+{-| Mark an element of the queue as complete. You have to provide the element key. This also frees up space in the pool.
+
+    queue
+        |> dequeue itemKey
+        |> start
 
 -}
-dequeue : String -> Queue a ->  Queue a
+dequeue : String -> Queue a -> Queue a
 dequeue key (Queue queue) =
     let
         matchedLaneIndex =
@@ -144,10 +155,8 @@ dequeue key (Queue queue) =
                 |> Queue
 
         Nothing ->
-             queue
+            queue
                 |> Queue
-
-
 
 
 clearActiveLane : Int -> QueueBody a -> QueueBody a
@@ -190,7 +199,7 @@ type alias QueueUnkeyedBody a =
     }
 
 
-{-| Queue that allows duplicates and that does not care about when a task is finished.
+{-| Queue that does not care about when a task is finished.
 -}
 type QueueUnkeyed a
     = QueueUnkeyed (QueueUnkeyedBody a)
