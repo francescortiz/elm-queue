@@ -13,3 +13,5 @@ you used an Queue if you want a pool size or an QueueUnkeyed. The function names
 for unkeyed queues, but if there is a good reason to use a different naming convention I am open to suggestions.
 
 Check the [full docs](https://package.elm-lang.org/packages/francescortiz/elm-queue/latest/Queue).
+
+Example implementation: https://ellie-app.com/4Ls2kmFnyNva1
